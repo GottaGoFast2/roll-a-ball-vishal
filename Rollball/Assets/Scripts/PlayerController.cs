@@ -9,9 +9,9 @@ public class PlayerController : MonoBehaviour
     public float speed = 0;
     public TextMeshProUGUI countText;
     public GameObject winTextObject;
-    // Start is called before the first frame update
+
     private Rigidbody rb;
-    private int count;
+    public int count; // Changed to public so PauseMenu can access it
     private float movementX;
     private float movementY;
 
@@ -22,13 +22,15 @@ public class PlayerController : MonoBehaviour
         SetCountText();
         winTextObject.SetActive(false);
     }
+
     void OnMove(InputValue movementValue)
     {
         Vector2 movementVector = movementValue.Get<Vector2>();
         movementX = movementVector.x;
         movementY = movementVector.y;
     }
-    void SetCountText()
+
+    public void SetCountText() // Changed to public so PauseMenu can call it
     {
         countText.text = "Count: " + count.ToString();
         if (count >= 8)
@@ -37,11 +39,13 @@ public class PlayerController : MonoBehaviour
             Destroy(GameObject.FindGameObjectWithTag("Enemy"));
         }
     }
+
     void FixedUpdate()
     {
         Vector3 movement = new Vector3(movementX, 0.0f, movementY);
         rb.AddForce(movement * speed);
     }
+
     void OnTriggerEnter(Collider other)
     {
         if (other.gameObject.CompareTag("PickUp"))
@@ -51,6 +55,7 @@ public class PlayerController : MonoBehaviour
             SetCountText();
         }
     }
+
     private void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("Enemy"))
