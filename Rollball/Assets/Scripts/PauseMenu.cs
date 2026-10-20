@@ -1,14 +1,16 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI; // Make sure this is here so we can reference Button
 
 public class PauseMenu : MonoBehaviour
 {
     [Header("UI Reference")]
     public GameObject pauseMenuUI;
+    public Button saveButton; // Drag your Save Game Button here in Inspector
 
     [Header("Player & Game Data")]
-    public Transform playerTransform;         // Drag your Player here
-    public PlayerController playerController; // Drag your Player here too
+    public Transform playerTransform;         
+    public PlayerController playerController; 
 
     public static bool isPaused = false;
 
@@ -23,7 +25,6 @@ public class PauseMenu : MonoBehaviour
         if (PlayerPrefs.GetInt("LoadGameFlag", 0) == 1)
         {
             LoadGameData();
-            // Reset the flag back to 0 so normal restarts don't auto-load
             PlayerPrefs.SetInt("LoadGameFlag", 0);
         }
     }
@@ -49,6 +50,16 @@ public class PauseMenu : MonoBehaviour
         pauseMenuUI.SetActive(true);
         Time.timeScale = 0f;
         isPaused = true;
+
+        // Check if the game is already won/completed. If so, disable the Save button!
+        if (playerController != null && playerController.winTextObject != null)
+        {
+            bool isGameOver = playerController.winTextObject.activeSelf;
+            if (saveButton != null)
+            {
+                saveButton.interactable = !isGameOver; // Disables button and automatically fades it visually if using standard Unity UI
+            }
+        }
     }
 
     public void LoadMainMenu()
@@ -58,23 +69,28 @@ public class PauseMenu : MonoBehaviour
     }
 
     // --- SAVE GAME ---
-    public void SaveGame()
+    public void SaveGameData()
     {
-        if (playerTransform != null)
+        // Prevent saving if the game is already won/completed
+        if (playerController != null && playerController.winTextObject != null && playerController.winTextObject.activeSelf)
+        {
+            Debug.LogWarning("You cannot save a completed game!");
+            return;
+        }
+
+        if (playerTransform != null && playerController != null)
         {
             PlayerPrefs.SetFloat("PlayerX", playerTransform.position.x);
             PlayerPrefs.SetFloat("PlayerY", playerTransform.position.y);
             PlayerPrefs.SetFloat("PlayerZ", playerTransform.position.z);
-        }
-
-        // Save the score counter (assuming your variable in PlayerController is named 'count')
-        if (playerController != null)
-        {
             PlayerPrefs.SetInt("SavedScore", playerController.count);
-        }
 
-        PlayerPrefs.Save();
-        Debug.Log("Game Saved: Position & Score stored!");
+            // Save the current stopwatch time!
+            PlayerPrefs.SetFloat("SavedTime", playerController.elapsedTime);
+
+            PlayerPrefs.Save();
+            Debug.Log("Game Saved Successfully! Time saved: " + playerController.elapsedTime);
+        }
     }
 
     // --- LOAD GAME ---
@@ -86,7 +102,7 @@ public class PauseMenu : MonoBehaviour
             isPaused = false;
             if (pauseMenuUI != null) pauseMenuUI.SetActive(false);
 
-            // 1. Restore Position
+            // 1. Restore Position & Camera
             float x = PlayerPrefs.GetFloat("PlayerX");
             float y = PlayerPrefs.GetFloat("PlayerY");
             float z = PlayerPrefs.GetFloat("PlayerZ");
@@ -94,8 +110,6 @@ public class PauseMenu : MonoBehaviour
             if (playerTransform != null)
             {
                 playerTransform.position = new Vector3(x, y, z);
-
-                // Snap Camera using your camera's offset (X:0, Y:10, Z:-10)
                 Camera mainCamera = Camera.main;
                 if (mainCamera != null)
                 {
@@ -103,18 +117,27 @@ public class PauseMenu : MonoBehaviour
                 }
             }
 
-            // 2. Restore Score Counter & UI Text
-            if (playerController != null && PlayerPrefs.HasKey("SavedScore"))
+            // 2. Restore Score, Pick-ups, and Timer
+            if (playerController != null)
             {
-                int savedScore = PlayerPrefs.GetInt("SavedScore");
-                playerController.count = savedScore;
-                playerController.SetCountText();
-
-                // 3. Despawn the pick-ups that were already collected!
-                GameObject[] pickups = GameObject.FindGameObjectsWithTag("PickUp");
-                for (int i = 0; i < savedScore && i < pickups.Length; i++)
+                if (PlayerPrefs.HasKey("SavedScore"))
                 {
-                    pickups[i].SetActive(false);
+                    int savedScore = PlayerPrefs.GetInt("SavedScore");
+                    playerController.count = savedScore;
+                    playerController.SetCountText();
+
+                    // Despawn collected pick-ups
+                    GameObject[] pickups = GameObject.FindGameObjectsWithTag("PickUp");
+                    for (int i = 0; i < savedScore && i < pickups.Length; i++)
+                    {
+                        pickups[i].SetActive(false);
+                    }
+                }
+
+                // Restore the stopwatch time
+                if (PlayerPrefs.HasKey("SavedTime"))
+                {
+                    playerController.elapsedTime = PlayerPrefs.GetFloat("SavedTime");
                 }
             }
 
